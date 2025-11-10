@@ -56,9 +56,9 @@ class BayesianBeliefModel:
     def __init__(self):
         self.experiences: List[Experience] = []
         self.experience_counter: int = 0
-        self.cumulative_suffering: List[float] = [0.0]
         self.brahma_viharas_level: float = 0.0  # Cultivation level (0-1), auto-releases charge on new experiences
         self.meditation_practice_count: int = 0  # Track meditation sessions for skill growth
+        self.total_squeezing_reduced: float = 0.0  # Track total squeezing cost reduced through meditation
 
         # Prior parameters (extremely weak prior - wide initial belief)
         self.prior_mu = 0.0
@@ -156,7 +156,7 @@ class BayesianBeliefModel:
 
         # Use root-finding to find the boundary
         try:
-            fitting_reduction = brentq(check_coverage, 1e-10, 1.0, xtol=1e-6)
+            fitting_reduction: float = brentq(check_coverage, 1e-10, 1.0, xtol=1e-6)  # type: ignore
             return fitting_reduction
         except ValueError:
             # If fails, use small reduction
@@ -211,17 +211,25 @@ class BayesianBeliefModel:
         """
         Calculate cost of squeezing an experience to fit within current posterior
 
-        Cost is based on how much we need to distort the experience:
-        1. Distance from posterior mean
-        2. Weighted by precision (high tau = costly to squeeze)
+        Cost is based on how much the posterior distribution gets "reactivated" 
+        (perturbed/tightened) when the squeezed experience is added.
+
+        The cost reflects:
+        1. The distance the experience needs to be shifted (mean_shift)
+        2. How much the posterior's precision (tau) increases after adding it
+        
+        A high-precision experience that gets squeezed far creates a tight, 
+        reactive posterior = high suffering.
 
         Returns: squeezing cost (0 if within 95% CI)
         """
-        posterior_mu, posterior_sigma = self.get_posterior_params()
+        # Get current posterior before adding this experience
+        posterior_mu_before, posterior_sigma_before = self.get_posterior_params()
+        posterior_tau_before = 1.0 / (posterior_sigma_before ** 2)
 
-        # 95% confidence interval of posterior: μ ± 1.96σ
-        ci_lower = posterior_mu - 1.96 * posterior_sigma
-        ci_upper = posterior_mu + 1.96 * posterior_sigma
+        # 95% confidence interval of current posterior
+        ci_lower = posterior_mu_before - 1.96 * posterior_sigma_before
+        ci_upper = posterior_mu_before + 1.96 * posterior_sigma_before
 
         # If experience mean is within CI, no squeezing needed
         if ci_lower <= objective_mean <= ci_upper:
@@ -229,14 +237,22 @@ class BayesianBeliefModel:
 
         # Outside CI: need to squeeze it to the nearest boundary
         if objective_mean < ci_lower:
+            stored_mean = ci_lower
             mean_shift = ci_lower - objective_mean
         else:
+            stored_mean = ci_upper
             mean_shift = objective_mean - ci_upper
 
-        # Cost = distance we need to shift it, weighted by its precision (tau)
-        # High precision (low sigma) experiences are more costly to squeeze
-        tau = 1.0 / (objective_sigma ** 2)
-        cost = (mean_shift ** 2) * tau
+        # Calculate what the posterior would be AFTER adding the squeezed experience
+        # This shows how much the posterior gets "reactivated" (tighter/more certain)
+        exp_tau = 1.0 / (objective_sigma ** 2)
+        
+        # Bayesian update: tau_after = tau_before + exp_tau
+        posterior_tau_after = posterior_tau_before + exp_tau
+        
+        # Cost = squared distance shifted × how much the posterior tightens
+        # The posterior's increased precision (tau_after) measures the "reactivation"
+        cost = (mean_shift ** 2) * posterior_tau_after
 
         return cost
 
@@ -293,10 +309,6 @@ class BayesianBeliefModel:
         self.experiences.append(exp)
         self.experience_counter += 1
 
-        # Update cumulative suffering
-        last_suffering = self.cumulative_suffering[-1]
-        self.cumulative_suffering.append(last_suffering + exp.squeezing_cost)
-
         # All experiences (both squeezed and non-squeezed) will be meditated 
         # gradually over time (see apply_time_based_meditation)
 
@@ -337,6 +349,12 @@ class BayesianBeliefModel:
         if meditation_level <= exp.meditation_level:
             return  # No change
 
+        # Calculate squeezing cost BEFORE meditation increase
+        cost_before = sum(
+            self.calculate_squeezing_cost(e.objective_mean, e.objective_sigma)
+            for e in self.experiences
+        )
+
         # Update meditation level
         exp.meditation_level = meditation_level
 
@@ -354,6 +372,21 @@ class BayesianBeliefModel:
 
         # Check if meditation allows unsqueezing (updates was_squeezed flag)
         self._check_unsqueeze(exp)
+
+        # Calculate squeezing cost AFTER meditation increase
+        cost_after = sum(
+            self.calculate_squeezing_cost(e.objective_mean, e.objective_sigma)
+            for e in self.experiences
+        )
+
+        # Track the reduction in squeezing cost
+        cost_reduction = max(0.0, cost_before - cost_after)
+        self.total_squeezing_reduced += cost_reduction
+
+        # Increase cultivation level based on total reduction (discretized with floor)
+        # Each 100 points of squeezing reduced increases cultivation by 0.01 (1%)
+        # Need to reduce 10,000 points total to reach 100% cultivation
+        self.brahma_viharas_level = min(1.0, np.floor(self.total_squeezing_reduced / 100.0) * 0.02)
 
         # Track meditation practice count (for statistics/display)
         self.meditation_practice_count += 1
@@ -545,20 +578,14 @@ class BayesianBeliefModel:
                 'original_cost': float(exp.squeezing_cost)
             })
 
-        # Cumulative suffering over time (historical - doesn't change)
-        cumulative = [
-            {'timestamp': i, 'suffering': float(s)}
-            for i, s in enumerate(self.cumulative_suffering)
-        ]
-
         # Current total squeezing cost
         current_total_cost = sum(c['cost'] for c in individual_costs)
 
         return {
             'individual_costs': individual_costs,
-            'cumulative_suffering': cumulative,
             'total_squeezing_cost': float(current_total_cost),
-            'historical_squeezing_cost': float(sum(exp.squeezing_cost for exp in self.experiences))
+            'historical_squeezing_cost': float(sum(exp.squeezing_cost for exp in self.experiences)),
+            'total_squeezing_reduced': float(self.total_squeezing_reduced)
         }
     
     def get_state(self) -> Dict:

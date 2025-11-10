@@ -7,48 +7,7 @@ function SufferingMetrics({ metrics }) {
     return <div className="no-data">No metrics available</div>;
   }
 
-  const { individual_costs, cumulative_suffering, total_squeezing_cost } = metrics;
-
-  // Cumulative suffering chart
-  const cumulativeTrace = {
-    x: cumulative_suffering.map(d => d.timestamp),
-    y: cumulative_suffering.map(d => d.suffering),
-    type: 'scatter',
-    mode: 'lines+markers',
-    name: 'Cumulative Suffering',
-    line: {
-      color: '#e74c3c',
-      width: 3
-    },
-    marker: {
-      size: 6,
-      color: '#e74c3c'
-    },
-    fill: 'tozeroy',
-    fillcolor: 'rgba(231, 76, 60, 0.2)'
-  };
-
-  const cumulativeLayout = {
-    title: {
-      text: 'Cumulative Suffering Over Time',
-      font: { color: '#e0e0e0', size: 13 }
-    },
-    xaxis: {
-      title: 'Experience #',
-      gridcolor: 'rgba(255, 255, 255, 0.1)',
-      color: '#a0a0a0'
-    },
-    yaxis: {
-      title: 'Total Suffering',
-      gridcolor: 'rgba(255, 255, 255, 0.1)',
-      color: '#a0a0a0'
-    },
-    plot_bgcolor: 'rgba(0, 0, 0, 0.3)',
-    paper_bgcolor: 'rgba(0, 0, 0, 0)',
-    font: { color: '#e0e0e0' },
-    margin: { t: 40, r: 20, b: 40, l: 50 },
-    height: 200
-  };
+  const { individual_costs, total_squeezing_cost } = metrics;
 
   // Individual costs chart
   const individualTrace = {
@@ -97,17 +56,6 @@ function SufferingMetrics({ metrics }) {
 
   return (
     <div className="suffering-metrics">
-      {cumulative_suffering.length > 1 && (
-        <div className="chart-container">
-          <Plot
-            data={[cumulativeTrace]}
-            layout={cumulativeLayout}
-            config={config}
-            style={{ width: '100%' }}
-          />
-        </div>
-      )}
-
       {individual_costs.length > 0 && (
         <div className="chart-container">
           <Plot
@@ -130,7 +78,7 @@ function SufferingMetrics({ metrics }) {
         </p>
       </div>
 
-      {cumulative_suffering.length === 1 && individual_costs.length === 0 && (
+      {individual_costs.length === 0 && (
         <div className="empty-state">
           <p>📊 No experiences yet. Add experiences to see suffering metrics.</p>
         </div>
