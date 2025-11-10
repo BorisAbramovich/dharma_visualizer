@@ -1,0 +1,75 @@
+.loss-landscape {
+  width: 100%;
+}
+
+.no-data {
+  text-align: center;
+  color: #a0a0a0;
+  padding: 40px;
+  font-size: 1.1rem;
+}
+
+.landscape-explanation {
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.landscape-explanation h4 {
+  color: #667eea;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.explanation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.explanation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 6px;
+}
+
+.explanation-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.explanation-item strong {
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.explanation-item p {
+  color: #a0a0a0;
+  font-size: 0.8rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.landscape-insight {
+  margin-top: 15px;
+  padding: 12px;
+  background: rgba(243, 156, 18, 0.1);
+  border-left: 3px solid #f39c12;
+  border-radius: 4px;
+  color: #c0c0c0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.landscape-insight strong {
+  color: #f39c12;
+}

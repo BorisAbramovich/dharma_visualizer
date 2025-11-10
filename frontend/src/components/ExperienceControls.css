@@ -1,0 +1,120 @@
+.experience-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.control-group label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #e0e0e0;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.value-display {
+  font-size: 1.2rem;
+  color: #667eea;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+
+.experience-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, 
+    #ff6b6b 0%, 
+    #ffd93d 25%, 
+    #95e1d3 50%, 
+    #6bcf7f 75%, 
+    #4d96ff 100%);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.experience-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid #667eea;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.experience-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid #667eea;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #a0a0a0;
+  margin-top: -5px;
+}
+
+.add-button {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.add-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.add-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.info-box {
+  background: rgba(102, 126, 234, 0.1);
+  border-left: 3px solid #667eea;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.info-text {
+  font-size: 0.85rem;
+  color: #c0c0c0;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.info-text strong {
+  color: #667eea;
+}
+
+.slider-help {
+  font-size: 0.8rem;
+  color: #a0a0a0;
+  margin: -5px 0 0 0;
+  font-style: italic;
+}
