@@ -393,7 +393,7 @@ class BayesianBeliefModel:
         """
         self.brahma_viharas_level = max(0.0, min(1.0, level))
 
-    def apply_time_based_meditation(self, delay_seconds: float = 5.0, decay_duration: float = 5.0, 
+    def apply_time_based_meditation(self, delay_seconds: float = 0.5, decay_duration: float = 5.0, 
                                    manual_duration: float = 2.0):
         """
         Apply gradual meditation to ALL experiences based on elapsed time.
@@ -565,7 +565,7 @@ class BayesianBeliefModel:
         """Get complete state for dashboard"""
         # Apply time-based auto-meditation before returning state
         # Starts at 5s, completes by 10s (5s delay + 5s decay)
-        self.apply_time_based_meditation(delay_seconds=5.0, decay_duration=5.0)
+        self.apply_time_based_meditation(delay_seconds=0.5, decay_duration=5.0)
 
         x_range = np.linspace(-10, 10, 200)
 
