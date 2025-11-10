@@ -17,8 +17,10 @@ class Experience:
     squeezing_cost: float = 0.0  # Cost paid to squeeze this experience
     was_squeezed: bool = False
     meditation_level: float = 0.0  # How much this experience has been meditated on (0.0 to 1.0)
-    original_stored_mean: float = None  # The stored_mean before any meditation (for interpolation)
+    original_stored_mean: float | None = None  # The stored_mean before any meditation (for interpolation)
     creation_brahma_viharas_level: float = 0.0  # The brahma viharas level when this experience was created
+    target_meditation_level: float = 0.0  # Target meditation level for manual meditation (animated)
+    manual_meditation_start_time: float | None = None  # When manual meditation was triggered
     
     @property
     def tau(self) -> float:
@@ -295,13 +297,8 @@ class BayesianBeliefModel:
         last_suffering = self.cumulative_suffering[-1]
         self.cumulative_suffering.append(last_suffering + exp.squeezing_cost)
 
-        # Auto-meditate SQUEEZED experiences immediately based on brahma viharas cultivation
-        # Non-squeezed experiences will be meditated gradually over time (see apply_time_based_meditation)
-        if self.brahma_viharas_level > 0 and exp.was_squeezed:
-            # Immediate auto-meditation for squeezed experiences
-            # They need help right away - this represents releasing reactivity to difficulty
-            auto_meditation = self.brahma_viharas_level
-            self.meditate_on_experience(exp.id, auto_meditation)
+        # All experiences (both squeezed and non-squeezed) will be meditated 
+        # gradually over time (see apply_time_based_meditation)
 
         return exp.to_dict()
     
@@ -363,16 +360,28 @@ class BayesianBeliefModel:
 
     def meditate_on_latest(self, meditation_level: float):
         """
-        Convenience method to meditate on the latest experience.
+        Convenience method to set a target meditation level for the latest experience.
 
-        This is the typical use case: a new experience comes in, gets squeezed,
-        and you meditate to release the rigidity.
+        Instead of immediately applying meditation, this sets a target that will be
+        reached gradually through apply_time_based_meditation(). This creates a smooth
+        animation similar to automatic cultivation-based meditation.
         """
         if not self.experiences:
             return
 
         latest_exp = self.experiences[-1]
-        self.meditate_on_experience(latest_exp.id, meditation_level)
+        
+        # Clamp meditation level
+        meditation_level = max(0.0, min(1.0, meditation_level))
+        
+        # Can only increase target meditation (one-way)
+        if meditation_level <= latest_exp.target_meditation_level:
+            return
+        
+        # Set the target and mark when manual meditation started
+        latest_exp.target_meditation_level = meditation_level
+        if latest_exp.manual_meditation_start_time is None:
+            latest_exp.manual_meditation_start_time = time.time()
 
     def set_brahma_viharas_level(self, level: float):
         """
@@ -384,29 +393,29 @@ class BayesianBeliefModel:
         """
         self.brahma_viharas_level = max(0.0, min(1.0, level))
 
-    def apply_time_based_meditation(self, delay_seconds: float = 5.0, decay_duration: float = 5.0):
+    def apply_time_based_meditation(self, delay_seconds: float = 5.0, decay_duration: float = 5.0, 
+                                   manual_duration: float = 2.0):
         """
-        Apply gradual auto-meditation to non-squeezed experiences based on elapsed time.
+        Apply gradual meditation to ALL experiences based on elapsed time.
 
-        Squeezed experiences get immediate meditation (handled in add_experience).
-        Non-squeezed experiences gradually receive meditation over time.
+        This handles two types of meditation:
+        1. Automatic cultivation-based meditation (from brahma viharas level)
+        2. Manual meditation (from clicking the meditate button)
 
-        This models how even "good" experiences that fit our model can gradually
-        lose their emotional charge with time and cultivation.
-
-        Each experience uses the brahma viharas level that was active when it was created,
-        not the current global level. This ensures sliding the cultivation slider doesn't
-        retroactively affect old experiences.
+        Both animate smoothly over time for a consistent user experience.
 
         Args:
             delay_seconds: When to START auto-meditation (5 seconds)
-            decay_duration: How long the decay takes (5 seconds, so total = 10s to full meditation)
+            decay_duration: How long the auto-meditation takes (5 seconds)
+            manual_duration: How long manual meditation animation takes (2 seconds)
         """
         current_time = time.time()
 
         for exp in self.experiences:
-            # Only apply to non-squeezed experiences (squeezed ones are handled immediately)
-            if not exp.was_squeezed and exp.creation_brahma_viharas_level > 0:
+            target_meditation = 0.0
+            
+            # 1. Calculate automatic cultivation-based meditation target
+            if exp.creation_brahma_viharas_level > 0:
                 time_elapsed = current_time - exp.timestamp
 
                 # Start meditating after delay, increase gradually over decay_duration
@@ -415,11 +424,23 @@ class BayesianBeliefModel:
                     decay_progress = min(1.0, (time_elapsed - delay_seconds) / decay_duration)
 
                     # Target meditation increases gradually to the cultivation level WHEN THIS EXPERIENCE WAS CREATED
-                    target_meditation = exp.creation_brahma_viharas_level * decay_progress
-
-                    # Only increase meditation, never decrease
-                    if target_meditation > exp.meditation_level:
-                        self.meditate_on_experience(exp.id, target_meditation)
+                    auto_target = exp.creation_brahma_viharas_level * decay_progress
+                    target_meditation = max(target_meditation, auto_target)
+            
+            # 2. Calculate manual meditation target (if user clicked meditate button)
+            if exp.manual_meditation_start_time is not None:
+                time_since_manual = current_time - exp.manual_meditation_start_time
+                
+                # Animate manual meditation over manual_duration
+                manual_progress = min(1.0, time_since_manual / manual_duration)
+                
+                # Interpolate from current level to target level
+                manual_meditation = exp.meditation_level + (exp.target_meditation_level - exp.meditation_level) * manual_progress
+                target_meditation = max(target_meditation, manual_meditation)
+            
+            # Apply the highest target (only increase meditation, never decrease)
+            if target_meditation > exp.meditation_level:
+                self.meditate_on_experience(exp.id, target_meditation)
 
     def _check_unsqueeze(self, exp: Experience):
         """
