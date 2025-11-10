@@ -84,14 +84,13 @@ function MeditationControls({ experiences, onMeditate, brahmaViharasLevel, onSet
       <div className="section brahma-viharas">
         <h3>❤️ Brahma Viharas Cultivation</h3>
         <p className="section-description">
-          Cultivate loving-kindness, compassion, empathetic joy, and equanimity.
-          Higher cultivation automatically releases charge as new experiences arise.
+          Set your cultivation level manually. Meditation practice can only increase it from here.
         </p>
 
         <div className="cultivation-slider">
           <div className="slider-header">
             <label>Cultivation Level</label>
-            <span className="cultivation-value">{(brahmaViharasLevel * 100).toFixed(0)}%</span>
+            <span className="cultivation-value">{(brahmaViharasLevel * 100).toFixed(1)}%</span>
           </div>
           <input
             type="range"
@@ -110,12 +109,10 @@ function MeditationControls({ experiences, onMeditate, brahmaViharasLevel, onSet
 
         <div className="info-box brahma-info">
           <p className="info-text">
-            💡 Set your cultivation level to control automatic charge release.
-            Higher cultivation means less clinging to new experiences.
+            💡 Manual cultivation sets a baseline. Meditation practice will only increase it from this level.
           </p>
           <p className="info-text">
-            Difficult experiences are immediately released. All experiences gradually
-            decay over 5-10 seconds (shown with color change: blue → yellow → faded).
+            Higher cultivation automatically releases charge on new experiences (shown with color fading over time).
           </p>
         </div>
       </div>

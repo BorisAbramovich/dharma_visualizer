@@ -49,7 +49,7 @@ def meditate(request: MeditateRequest):
 
 @app.post("/brahma_viharas")
 def set_brahma_viharas(request: BrahmaViharasRequest):
-    """Set the brahma viharas cultivation level for automatic charge release"""
+    """Manually set the brahma viharas cultivation level"""
     model.set_brahma_viharas_level(request.level)
     return {"status": "success", "message": f"Brahma viharas level set to {request.level:.0%}"}
 

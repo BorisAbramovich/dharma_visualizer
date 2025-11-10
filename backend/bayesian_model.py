@@ -21,6 +21,7 @@ class Experience:
     creation_brahma_viharas_level: float = 0.0  # The brahma viharas level when this experience was created
     target_meditation_level: float = 0.0  # Target meditation level for manual meditation (animated)
     manual_meditation_start_time: float | None = None  # When manual meditation was triggered
+    is_manual_meditation: bool = False  # Whether this meditation is from manual button (increases cultivation)
     
     @property
     def tau(self) -> float:
@@ -56,9 +57,8 @@ class BayesianBeliefModel:
     def __init__(self):
         self.experiences: List[Experience] = []
         self.experience_counter: int = 0
-        self.brahma_viharas_level: float = 0.0  # Cultivation level (0-1), auto-releases charge on new experiences
+        self.brahma_viharas_level: float = 0.0  # Cultivation level (0-1), single counter
         self.meditation_practice_count: int = 0  # Track meditation sessions for skill growth
-        self.total_squeezing_reduced: float = 0.0  # Track total squeezing cost reduced through meditation
 
         # Prior parameters (extremely weak prior - wide initial belief)
         self.prior_mu = 0.0
@@ -314,7 +314,7 @@ class BayesianBeliefModel:
 
         return exp.to_dict()
     
-    def meditate_on_experience(self, experience_id: int, meditation_level: float):
+    def meditate_on_experience(self, experience_id: int, meditation_level: float, increase_cultivation: bool = True):
         """
         Meditate on an experience to release rigidity and expand the model.
 
@@ -336,6 +336,7 @@ class BayesianBeliefModel:
         Args:
             experience_id: The ID of the experience to meditate on
             meditation_level: New meditation level (0.0 to 1.0), must be >= current level
+            increase_cultivation: Whether to increase cultivation level (True for manual, False for automatic)
         """
         # Find the experience
         exp = next((e for e in self.experiences if e.id == experience_id), None)
@@ -349,11 +350,13 @@ class BayesianBeliefModel:
         if meditation_level <= exp.meditation_level:
             return  # No change
 
-        # Calculate squeezing cost BEFORE meditation increase
-        cost_before = sum(
-            self.calculate_squeezing_cost(e.objective_mean, e.objective_sigma)
-            for e in self.experiences
-        )
+        # Calculate squeezing cost BEFORE meditation (only if increasing cultivation)
+        cost_before = 0.0
+        if increase_cultivation:
+            cost_before = sum(
+                self.calculate_squeezing_cost(e.objective_mean, e.objective_sigma)
+                for e in self.experiences
+            )
 
         # Update meditation level
         exp.meditation_level = meditation_level
@@ -373,20 +376,18 @@ class BayesianBeliefModel:
         # Check if meditation allows unsqueezing (updates was_squeezed flag)
         self._check_unsqueeze(exp)
 
-        # Calculate squeezing cost AFTER meditation increase
-        cost_after = sum(
-            self.calculate_squeezing_cost(e.objective_mean, e.objective_sigma)
-            for e in self.experiences
-        )
+        # Calculate squeezing cost AFTER meditation and increase cultivation (only for manual meditation)
+        if increase_cultivation:
+            cost_after = sum(
+                self.calculate_squeezing_cost(e.objective_mean, e.objective_sigma)
+                for e in self.experiences
+            )
 
-        # Track the reduction in squeezing cost
-        cost_reduction = max(0.0, cost_before - cost_after)
-        self.total_squeezing_reduced += cost_reduction
-
-        # Increase cultivation level based on total reduction (discretized with floor)
-        # Each 100 points of squeezing reduced increases cultivation by 0.01 (1%)
-        # Need to reduce 10,000 points total to reach 100% cultivation
-        self.brahma_viharas_level = min(1.0, np.floor(self.total_squeezing_reduced / 100.0) * 0.02)
+            # Track the reduction in squeezing cost and increase cultivation
+            # Each 100 points of squeezing reduced increases cultivation by 0.01 (1%)
+            cost_reduction = max(0.0, cost_before - cost_after)
+            cultivation_increase = np.floor(cost_reduction / 100.0) * 0.01
+            self.brahma_viharas_level = min(1.0, self.brahma_viharas_level + cultivation_increase)
 
         # Track meditation practice count (for statistics/display)
         self.meditation_practice_count += 1
@@ -415,14 +416,16 @@ class BayesianBeliefModel:
         latest_exp.target_meditation_level = meditation_level
         if latest_exp.manual_meditation_start_time is None:
             latest_exp.manual_meditation_start_time = time.time()
+        
+        # Mark this as manual meditation (should increase cultivation)
+        latest_exp.is_manual_meditation = True
 
     def set_brahma_viharas_level(self, level: float):
         """
-        Set the brahma viharas cultivation level (0.0 to 1.0).
+        Manually set the brahma viharas cultivation level (0.0 to 1.0).
 
-        Higher levels mean more automatic release of charge when new experiences arrive.
-        This represents cultivated equanimity and compassion that prevents attachment
-        from forming in the first place.
+        This allows manual override of the cultivation level. Meditation practice
+        can only INCREASE this level from the manually set value, never decrease it.
         """
         self.brahma_viharas_level = max(0.0, min(1.0, level))
 
@@ -473,7 +476,13 @@ class BayesianBeliefModel:
             
             # Apply the highest target (only increase meditation, never decrease)
             if target_meditation > exp.meditation_level:
-                self.meditate_on_experience(exp.id, target_meditation)
+                # Check if this is manual meditation (should increase cultivation)
+                should_increase_cultivation = exp.is_manual_meditation
+                self.meditate_on_experience(exp.id, target_meditation, increase_cultivation=should_increase_cultivation)
+                
+                # Once manual meditation is complete, reset the flag
+                if exp.is_manual_meditation and target_meditation >= exp.target_meditation_level:
+                    exp.is_manual_meditation = False
 
     def _check_unsqueeze(self, exp: Experience):
         """
@@ -584,8 +593,7 @@ class BayesianBeliefModel:
         return {
             'individual_costs': individual_costs,
             'total_squeezing_cost': float(current_total_cost),
-            'historical_squeezing_cost': float(sum(exp.squeezing_cost for exp in self.experiences)),
-            'total_squeezing_reduced': float(self.total_squeezing_reduced)
+            'historical_squeezing_cost': float(sum(exp.squeezing_cost for exp in self.experiences))
         }
     
     def get_state(self) -> Dict:
