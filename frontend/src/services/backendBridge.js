@@ -19,6 +19,15 @@ class BackendBridge {
                 }
             }
         };
+
+        // Initialize worker with correct path to python script
+        // import.meta.env.BASE_URL handles the GitHub Pages subdirectory
+        // We use new URL() to resolve relative paths correctly against the current location
+        const pythonScriptUrl = new URL('bayesian_model.py', new URL(import.meta.env.BASE_URL, window.location.href)).href;
+
+        this._send('INIT', { pythonScriptUrl }).catch(err => {
+            console.error("Failed to initialize backend worker:", err);
+        });
     }
 
     async _send(type, payload = {}) {
